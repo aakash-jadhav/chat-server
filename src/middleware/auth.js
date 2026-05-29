@@ -1,15 +1,27 @@
 import Session from '../models/Session.js';
-import { getCookieName, verifySessionToken } from '../utils/jwt.js';
+import { getCookieName, getTokenFromRequest, verifySessionToken } from '../utils/jwt.js';
+
+export async function resolveSessionFromToken(token) {
+  if (!token) {
+    return null;
+  }
+
+  try {
+    const payload = verifySessionToken(token);
+    return Session.findById(payload.sessionId);
+  } catch {
+    return null;
+  }
+}
 
 export async function requireSession(req, res, next) {
   try {
-    const token = req.cookies?.[getCookieName()];
+    const token = getTokenFromRequest(req);
     if (!token) {
       return res.status(401).json({ error: 'Not authenticated' });
     }
 
-    const payload = verifySessionToken(token);
-    const session = await Session.findById(payload.sessionId);
+    const session = await resolveSessionFromToken(token);
     if (!session) {
       return res.status(401).json({ error: 'Session not found' });
     }
@@ -28,17 +40,16 @@ export async function resolveSessionFromCookie(cookieHeader) {
 
   const { parse: parseCookie } = await import('cookie');
   const cookies = parseCookie(cookieHeader);
-  const token = cookies[getCookieName()];
-  if (!token) {
-    return null;
+  return resolveSessionFromToken(cookies[getCookieName()]);
+}
+
+export async function resolveSessionFromHandshake(handshake) {
+  const fromCookie = await resolveSessionFromCookie(handshake.headers.cookie);
+  if (fromCookie) {
+    return fromCookie;
   }
 
-  try {
-    const payload = verifySessionToken(token);
-    return Session.findById(payload.sessionId);
-  } catch {
-    return null;
-  }
+  return resolveSessionFromToken(handshake.auth?.token);
 }
 
 export function formatSessionProfile(session) {

@@ -14,6 +14,21 @@ export function verifySessionToken(token) {
   return jwt.verify(token, process.env.JWT_SECRET);
 }
 
+/** Cookie first, then Authorization: Bearer (for browsers that block cross-site cookies). */
+export function getTokenFromRequest(req) {
+  const cookieToken = req.cookies?.[getCookieName()];
+  if (cookieToken) {
+    return cookieToken;
+  }
+
+  const authHeader = req.headers.authorization;
+  if (authHeader?.startsWith('Bearer ')) {
+    return authHeader.slice(7);
+  }
+
+  return null;
+}
+
 export function getCookieOptions() {
   const isProduction = process.env.NODE_ENV === 'production';
 

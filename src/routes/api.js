@@ -8,28 +8,36 @@ import { generateUniqueSixDigitCode } from '../utils/generateCode.js';
 import {
   getCookieName,
   getCookieOptions,
+  getTokenFromRequest,
   signSessionToken,
   verifySessionToken,
 } from '../utils/jwt.js';
 
 const router = Router();
 
+function sendSessionResponse(res, session, isNew) {
+  const token = signSessionToken(session._id.toString());
+  res.cookie(getCookieName(), token, getCookieOptions());
+  return res.json({
+    session: formatSessionProfile(session),
+    isNew,
+    // Returned for clients where cross-site cookies are blocked (e.g. incognito).
+    token,
+  });
+}
+
 async function createFreshSession(res) {
   const sixDigitCode = await generateUniqueSixDigitCode();
   const session = await Session.create({ sixDigitCode });
-  const token = signSessionToken(session._id.toString());
-
-  res.cookie(getCookieName(), token, getCookieOptions());
-  return session;
+  return sendSessionResponse(res, session, true);
 }
 
 router.get('/init', async (req, res) => {
   try {
-    const token = req.cookies?.[getCookieName()];
+    const token = getTokenFromRequest(req);
 
     if (!token) {
-      const session = await createFreshSession(res);
-      return res.json({ session: formatSessionProfile(session), isNew: true });
+      return createFreshSession(res);
     }
 
     try {
@@ -38,15 +46,13 @@ router.get('/init', async (req, res) => {
 
       if (!session) {
         res.clearCookie(getCookieName(), getCookieOptions());
-        const freshSession = await createFreshSession(res);
-        return res.json({ session: formatSessionProfile(freshSession), isNew: true });
+        return createFreshSession(res);
       }
 
-      return res.json({ session: formatSessionProfile(session), isNew: false });
+      return sendSessionResponse(res, session, false);
     } catch {
       res.clearCookie(getCookieName(), getCookieOptions());
-      const freshSession = await createFreshSession(res);
-      return res.json({ session: formatSessionProfile(freshSession), isNew: true });
+      return createFreshSession(res);
     }
   } catch (error) {
     console.error('Init error:', error);
@@ -56,7 +62,7 @@ router.get('/init', async (req, res) => {
 
 router.post('/logout', async (req, res) => {
   try {
-    const token = req.cookies?.[getCookieName()];
+    const token = getTokenFromRequest(req);
 
     if (token) {
       try {
@@ -77,7 +83,7 @@ router.post('/logout', async (req, res) => {
 
 router.post('/clear-session', async (req, res) => {
   try {
-    const token = req.cookies?.[getCookieName()];
+    const token = getTokenFromRequest(req);
 
     if (token) {
       try {
@@ -96,8 +102,7 @@ router.post('/clear-session', async (req, res) => {
     }
 
     res.clearCookie(getCookieName(), getCookieOptions());
-    const session = await createFreshSession(res);
-    return res.json({ session: formatSessionProfile(session), isNew: true });
+    return createFreshSession(res);
   } catch (error) {
     console.error('Clear session error:', error);
     return res.status(500).json({ error: 'Failed to clear session' });

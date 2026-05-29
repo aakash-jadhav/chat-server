@@ -2,7 +2,7 @@ import Connection from '../models/Connection.js';
 import Message from '../models/Message.js';
 import RequestLog from '../models/RequestLog.js';
 import Session from '../models/Session.js';
-import { resolveSessionFromCookie } from '../middleware/auth.js';
+import { resolveSessionFromHandshake } from '../middleware/auth.js';
 
 const onlineSockets = new Map();
 
@@ -50,8 +50,7 @@ export function registerSocketHandlers(io) {
 
   io.use(async (socket, next) => {
     try {
-      const cookieHeader = socket.handshake.headers.cookie;
-      const session = await resolveSessionFromCookie(cookieHeader);
+      const session = await resolveSessionFromHandshake(socket.handshake);
 
       if (!session) {
         return next(new Error('Unauthorized'));
