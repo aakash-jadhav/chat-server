@@ -9,8 +9,16 @@ import { connectDB } from './config/db.js';
 import apiRoutes from './routes/api.js';
 import { registerSocketHandlers } from './socket/index.js';
 
-const PORT = process.env.PORT || 5000;
+const PORT = Number(process.env.PORT) || 5000;
+const HOST = '0.0.0.0';
 const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173';
+
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught exception:', err);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('Unhandled rejection:', reason);
+});
 
 function start() {
   if (!process.env.JWT_SECRET) {
@@ -73,8 +81,8 @@ function start() {
     throw err;
   });
 
-  httpServer.listen(PORT, () => {
-    console.log(`API server:  http://localhost:${PORT}`);
+  httpServer.listen(PORT, HOST, () => {
+    console.log(`API server listening on ${HOST}:${PORT}`);
     console.log(`Chat app:    ${CLIENT_URL}  ← open this in your browser`);
   });
 
