@@ -2,6 +2,7 @@ import './config/env.js';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import express from 'express';
+import mongoose from 'mongoose';
 import { createServer } from 'node:http';
 import { Server } from 'socket.io';
 import { connectDB } from './config/db.js';
@@ -11,13 +12,11 @@ import { registerSocketHandlers } from './socket/index.js';
 const PORT = process.env.PORT || 5000;
 const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173';
 
-async function start() {
+function start() {
   if (!process.env.JWT_SECRET) {
     console.error('JWT_SECRET is required. Copy server/.env.example to server/.env');
     process.exit(1);
   }
-
-  await connectDB(process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/secure-p2p-chat');
 
   const app = express();
   const httpServer = createServer(app);
@@ -40,6 +39,15 @@ async function start() {
 
   app.get('/api/health', (_req, res) => {
     res.json({ ok: true });
+  });
+
+  app.get('/api/test', (_req, res) => {
+    res.json({
+      ok: true,
+      message: 'Server is reachable',
+      dbConnected: mongoose.connection.readyState === 1,
+      timestamp: new Date().toISOString(),
+    });
   });
 
   app.get('/', (_req, res) => {
@@ -69,8 +77,10 @@ async function start() {
     console.log(`API server:  http://localhost:${PORT}`);
     console.log(`Chat app:    ${CLIENT_URL}  ← open this in your browser`);
   });
+
+  connectDB(process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/secure-p2p-chat').catch((err) => {
+    console.error('MongoDB connection failed (server still running):', err.message);
+  });
 }
-start().catch((err) => {
-  console.error('Failed to start server:', err);
-  process.exit(1);
-});
+
+start();
