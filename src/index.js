@@ -2,7 +2,7 @@ import './config/env.js';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import express from 'express';
-import { createServer } from 'http';
+import { createServer } from 'node:http';
 import { Server } from 'socket.io';
 import { connectDB } from './config/db.js';
 import apiRoutes from './routes/api.js';
@@ -24,14 +24,14 @@ async function start() {
 
   const io = new Server(httpServer, {
     cors: {
-      origin: CLIENT_URL,
+      origin: true,
       credentials: true,
     },
   });
 
   app.use(
     cors({
-      origin: CLIENT_URL,
+      origin: true,
       credentials: true,
     })
   );
