@@ -17,10 +17,12 @@ export function verifySessionToken(token) {
 export function getCookieOptions() {
   const isProduction = process.env.NODE_ENV === 'production';
 
+  // Cross-origin frontend (e.g. Vercel) → API (e.g. Render) requires SameSite=None + Secure.
+  // Strict blocks the cookie on fetch from a different site, so /api/connections returns 401.
   return {
     httpOnly: true,
     secure: isProduction,
-    sameSite: 'strict',
+    sameSite: isProduction ? 'none' : 'lax',
     maxAge: 30 * 24 * 60 * 60 * 1000,
     path: '/',
   };
