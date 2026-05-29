@@ -2,14 +2,29 @@ import mongoose from 'mongoose';
 import { resolveMongoUri } from './resolveMongoUri.js';
 
 export async function connectDB(uri) {
-  const connectionUri = await resolveMongoUri(uri);
+  const options = { serverSelectionTimeoutMS: 15000 };
 
-  if (connectionUri !== uri) {
-    console.log('Resolved mongodb+srv URI via public DNS (SRV → standard connection)');
+  if (process.env.MONGODB_URI_STANDARD) {
+    await mongoose.connect(process.env.MONGODB_URI_STANDARD, options);
+    console.log('MongoDB connected (standard URI)');
+    return;
   }
 
-  await mongoose.connect(connectionUri, {
-    serverSelectionTimeoutMS: 15000,
-  });
-  console.log('MongoDB connected');
+  try {
+    await mongoose.connect(uri, options);
+    console.log('MongoDB connected');
+    return;
+  } catch (directErr) {
+    if (!uri?.startsWith('mongodb+srv://')) {
+      throw directErr;
+    }
+    console.warn(
+      'Direct connection failed, retrying via manual SRV resolution:',
+      directErr.message
+    );
+  }
+
+  const connectionUri = await resolveMongoUri(uri);
+  await mongoose.connect(connectionUri, options);
+  console.log('MongoDB connected (SRV fallback via public DNS)');
 }
